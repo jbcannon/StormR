@@ -276,22 +276,24 @@ plotStorms <- function(sts, names = NULL, category = NULL, labels = FALSE,
 
 
   #Plotting base map
-  w = 5
-  h = w * 1.125
-  grDevices::dev.new(width = w, height = h)
   opar <- graphics::par(no.readonly = TRUE)
-  graphics::par(mar = c(5, 4, 4, 6))
+  #graphics::par(mar = c(5, 2, 2, 4), mai = c(0, 0, 0, 0))
 
   world <- rworldmap::getMap(resolution <- "high")
-  maps::map(world, fill = TRUE, col = groundColor, bg = oceanColor, wrap = c(0, 360),
-            xlim = c(ext$xmin, ext$xmax), ylim = c(ext$ymin, ext$ymax))
+  maps::map(world,
+            fill = TRUE,
+            col = groundColor,
+            bg = oceanColor,
+            wrap = c(0, 360),
+            xlim = c(ext$xmin-1, ext$xmax+1),
+            ylim = c(ext$ymin-1, ext$ymax+1))
   maps::map.axes(cex.axis = 1)
 
   #Plotting loi
   if (loi)
     plot(sts@spatial.loi.buffer, lwd = 1, border = "blue", add = T)
 
-  if(as.character(sf::st_geometry_type(sts@spatial.loi)) == "POINT")
+  if(loi & as.character(sf::st_geometry_type(sts@spatial.loi)) == "POINT")
     plot(sts@spatial.loi, lwd = 2, col = "blue", pch = 4, add = T)
 
 
@@ -345,35 +347,44 @@ plotStorms <- function(sts, names = NULL, category = NULL, labels = FALSE,
   #Adding legends
   if (legends) {
 
-    graphics::legend(x = "topright", inset = c(-0.7, 0), xpd = TRUE,
-                     legend = c(expression(paste("Tropical Depression (below 17 m.s" ^ "-1",")")),
-                                expression(paste("Tropical Storm (18 to 32 m.s" ^ "-1",")")),
-                                expression(paste("Category 1 (33 to 42 m.s" ^ "-1",")")),
-                                expression(paste("Category 2 (43 to 49 m.s" ^ "-1",")")),
-                                expression(paste("Category 3 (50 to 58 m.s" ^ "-1",")")),
-                                expression(paste("Category 4 (58 to 70 m.s" ^ "-1",")")),
-                                expression(paste("Category 5 (70 m.s" ^ "-1","and higher)"))),
-                     col = c("#00CCFF", "#00CCCC", "#FFFFB2", "#FECC5C",
-                             "#FD8D3C", "#F03B20", "#BD0026"),
-                     pch = 19,
-                     cex = 0.8)
+    leg <- c(expression(paste("TD (< 18 m.s" ^ "-1",")")),
+             expression(paste("TS (18 to 32 m.s" ^ "-1",")")),
+             expression(paste("Cat. 1 (33 to 42 m.s" ^ "-1",")")),
+             expression(paste("Cat. 2 (43 to 49 m.s" ^ "-1",")")),
+             expression(paste("Cat. 3 (50 to 58 m.s" ^ "-1",")")),
+             expression(paste("Cat. 4 (58 to 70 m.s" ^ "-1",")")),
+             expression(paste("Cat. 5 ( >= 70 m.s" ^ "-1",")")))
 
-    if(as.character(sf::st_geometry_type(sts@spatial.loi)) == "POINT"){
-      graphics::legend(x = "right", inset = c(-0.355,0), xpd = TRUE,
-                       legend = c("LOI", "LOI buffer"),
-                       col = "blue",
-                       lty = c(0,1),
-                       lwd = c(2,1),
-                       pch = c(4,NA),
-                       cex = 0.8)
-    }else{
-      graphics::legend(x = "right", inset = c(-0.375,0), xpd = TRUE,
-                       legend = c("LOI buffer"),
-                       col = "blue",
-                       lty = 1,
-                       cex = 0.8)
+    col <- c("#00CCFF", "#00CCCC", "#FFFFB2", "#FECC5C", "#FD8D3C", "#F03B20", "#BD0026")
+
+    lty <- rep(0,7)
+    pch <- rep(19,7)
+    lwd <- rep(1,7)
+
+    if (loi){
+      if(loi & as.character(sf::st_geometry_type(sts@spatial.loi)) == "POINT"){
+        leg <- c(leg, "LOI")
+        col <- c(col, "blue")
+        lty <- c(lty, 0)
+        pch <- c(pch,4)
+        lwd <- c(lwd, 2)
+      }
+      leg <- c(leg, "LOI buffer")
+      col <- c(col, "blue")
+      lty <- c(lty, 1)
+      pch <- c(pch, NA)
+      lwd <- c(lwd, 1)
     }
 
+
+
+    graphics::legend(x = "topright", inset = c(-0.7, 0), xpd = TRUE,
+                     legend = leg,
+                     col = col,
+                     lty = lty,
+                     pch = pch,
+                     lwd = lwd,
+                     cex = 0.8)
 
   }
 
