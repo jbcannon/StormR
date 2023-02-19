@@ -2,6 +2,45 @@
 
 
 
+#' Get type for icon (leaflet)
+#'
+#' @noRd
+#' @param msw numeric
+#'
+#' @return corresponding icon
+getType <- function(msw) {
+
+  if (is.na(msw)) {
+    type <- NA
+
+  } else if (msw < sshs[1]) {
+    type <- "TD"
+
+  } else if (msw >= sshs[1] & msw < sshs[2]) {
+    type <- "TS"
+
+  } else if (msw >= sshs[2] & msw < sshs[3]) {
+    type <- "cat1"
+
+  } else if (msw >= sshs[3] & msw < sshs[4]) {
+    type <- "cat2"
+
+  } else if (msw >= sshs[4] & msw < sshs[5]) {
+    type <- "cat3"
+
+  } else if (msw >= sshs[5] & msw < sshs[6]) {
+    type <- "cat4"
+
+  } else if (msw >= sshs[6]) {
+    type <- "cat5"
+  }
+
+  return(type)
+}
+
+
+
+
 
 #' Get the right color associated with a wind observation
 #'
@@ -136,9 +175,11 @@ plotLabels <- function(st, by, pos) {
 #' @param xlim numeric vector
 #' @param ylim numeric vector
 #' @param reset_setting logical
+#' @param mode character
 #' @return NULL
 checkInputsPs <- function(sts, names, category, labels, by,
-                          pos, legends, loi, xlim, ylim, reset_setting){
+                          pos, legends, loi, xlim, ylim,
+                          reset_setting, mode){
 
   #Checking sts input
   stopifnot("no data to plot" = !missing(sts))
@@ -187,6 +228,12 @@ checkInputsPs <- function(sts, names, category, labels, by,
   stopifnot("pos must length 1" = length(pos) == 1)
   stopifnot("pos must be between either 1, 2, 3 or 4" = pos %in% c(1, 2, 3, 4))
 
+  #Checking mode input
+  stopifnot("mode must be character" = identical(class(mode), "character"))
+  stopifnot("mode must length 1" = length(mode) == 1)
+  stopifnot("Invalid mode" = mode %in% c("Classic", "Interactive"))
+
+
 
 }
 
@@ -228,6 +275,7 @@ checkInputsPs <- function(sts, names, category, labels, by,
 #' @param reset_setting logical. Whether the graphical parameter should be reset on exit. Default
 #' value is set to TRUE. It is usefull for the plotBehaviour function. We highly recommand not to change this
 #' input.
+#' @param mode character
 #' @returns NULL
 #' @import rworldxtra
 #'
@@ -248,11 +296,12 @@ checkInputsPs <- function(sts, names, category, labels, by,
 #' @export
 plotStorms <- function(sts, names = NULL, category = NULL, labels = FALSE,
                        by = 8, pos = 3, legends = TRUE, loi = TRUE, xlim = NULL,
-                       ylim = NULL, reset_setting = TRUE){
+                       ylim = NULL, reset_setting = TRUE,
+                       mode = "Classic"){
 
 
   checkInputsPs(sts, names, category, labels, by, pos, legends,
-                loi, xlim, ylim, reset_setting)
+                loi, xlim, ylim, reset_setting, mode)
 
 
   #Handling spatial extent
@@ -273,32 +322,7 @@ plotStorms <- function(sts, names = NULL, category = NULL, labels = FALSE,
     ext$ymax <- ylim[2]
   }
 
-
-
-  #Plotting base map
-  opar <- graphics::par(no.readonly = TRUE)
-  #graphics::par(mar = c(5, 2, 2, 4), mai = c(0, 0, 0, 0))
-
-  world <- rworldmap::getMap(resolution <- "high")
-  maps::map(world,
-            fill = TRUE,
-            col = groundColor,
-            bg = oceanColor,
-            wrap = c(0, 360),
-            xlim = c(ext$xmin-1, ext$xmax+1),
-            ylim = c(ext$ymin-1, ext$ymax+1))
-  maps::map.axes(cex.axis = 1)
-
-  #Plotting loi
-  if (loi)
-    plot(sts@spatial.loi.buffer, lwd = 1, border = "blue", add = T)
-
-  if(loi & as.character(sf::st_geometry_type(sts@spatial.loi)) == "POINT")
-    plot(sts@spatial.loi, lwd = 2, col = "blue", pch = 4, add = T)
-
-
-
-  #Handling categories
+  #Handling categories and names
   if(!is.null(category) & is.null(names)){
 
     if(length(category) == 2){
@@ -311,84 +335,175 @@ plotStorms <- function(sts, names = NULL, category = NULL, labels = FALSE,
       #length category == 1
       ind <- which(sts@sshs == category)
     }
+
     sts.aux <- unlist(sts@data)[ind]
 
   }else{
 
-    if(!is.null(category) & !is.null(names))
-      warning("category input ignored\n")
+    if(!is.null(names)){
+      if(!is.null(category))
+        warning("category input ignored\n")
 
-    sts.aux <- sts@data
+      ind <- which(sts@names %in% names)
+      sts.aux <- unlist(sts@data)[ind]
+
+    }else{
+      sts.aux <- sts@data
+    }
   }
 
-  #Plotting track(s) and labels
-  if(is.null(names)) {
 
+  if(mode == "Classic"){
+
+    #Plotting base map
+    opar <- graphics::par(no.readonly = TRUE)
+    #graphics::par(mar = c(5, 2, 2, 4), mai = c(0, 0, 0, 0))
+
+    world <- rworldmap::getMap(resolution <- "high")
+    maps::map(world,
+              fill = TRUE,
+              col = groundColor,
+              bg = oceanColor,
+              wrap = c(0, 360),
+              xlim = c(ext$xmin-1, ext$xmax+1),
+              ylim = c(ext$ymin-1, ext$ymax+1))
+    maps::map.axes(cex.axis = 1)
+
+    #Plotting loi
+    if (loi)
+      plot(sts@spatial.loi.buffer, lwd = 1, border = "blue", add = T)
+
+    if(loi & as.character(sf::st_geometry_type(sts@spatial.loi)) == "POINT")
+      plot(sts@spatial.loi, lwd = 2, col = "blue", pch = 4, add = T)
+
+    #Plotting track(s) and labels
     lapply(sts.aux, plotTrack)
-
     if(labels)
       lapply(sts.aux, plotLabels, by, pos)
 
-  } else{
+    #Adding legends
+    if(legends) {
 
-    for(n in names){
-      s = getSeasons(sts, n)
-      for(i in 1:length(s)){
-        st = getStorm(sts, n, s[i])
-        plotTrack(st)
-        if(labels)
-          plotLabels(st, by, pos)
-      }
+      leg <- c(expression(paste("TD (< 18 m.s" ^ "-1",")")),
+               expression(paste("TS (18 to 32 m.s" ^ "-1",")")),
+               expression(paste("Cat. 1 (33 to 42 m.s" ^ "-1",")")),
+               expression(paste("Cat. 2 (43 to 49 m.s" ^ "-1",")")),
+               expression(paste("Cat. 3 (50 to 58 m.s" ^ "-1",")")),
+               expression(paste("Cat. 4 (58 to 70 m.s" ^ "-1",")")),
+               expression(paste("Cat. 5 ( >= 70 m.s" ^ "-1",")")))
 
-    }
-  }
+      col <- c("#00CCFF", "#00CCCC", "#FFFFB2", "#FECC5C", "#FD8D3C", "#F03B20", "#BD0026")
 
+      lty <- rep(0,7)
+      pch <- rep(19,7)
+      lwd <- rep(1,7)
 
-  #Adding legends
-  if (legends) {
-
-    leg <- c(expression(paste("TD (< 18 m.s" ^ "-1",")")),
-             expression(paste("TS (18 to 32 m.s" ^ "-1",")")),
-             expression(paste("Cat. 1 (33 to 42 m.s" ^ "-1",")")),
-             expression(paste("Cat. 2 (43 to 49 m.s" ^ "-1",")")),
-             expression(paste("Cat. 3 (50 to 58 m.s" ^ "-1",")")),
-             expression(paste("Cat. 4 (58 to 70 m.s" ^ "-1",")")),
-             expression(paste("Cat. 5 ( >= 70 m.s" ^ "-1",")")))
-
-    col <- c("#00CCFF", "#00CCCC", "#FFFFB2", "#FECC5C", "#FD8D3C", "#F03B20", "#BD0026")
-
-    lty <- rep(0,7)
-    pch <- rep(19,7)
-    lwd <- rep(1,7)
-
-    if (loi){
-      if(loi & as.character(sf::st_geometry_type(sts@spatial.loi)) == "POINT"){
-        leg <- c(leg, "LOI")
+      if (loi){
+        if(loi & as.character(sf::st_geometry_type(sts@spatial.loi)) == "POINT"){
+          leg <- c(leg, "LOI")
+          col <- c(col, "blue")
+          lty <- c(lty, 0)
+          pch <- c(pch,4)
+          lwd <- c(lwd, 2)
+        }
+        leg <- c(leg, "LOI buffer")
         col <- c(col, "blue")
-        lty <- c(lty, 0)
-        pch <- c(pch,4)
-        lwd <- c(lwd, 2)
+        lty <- c(lty, 1)
+        pch <- c(pch, NA)
+        lwd <- c(lwd, 1)
       }
-      leg <- c(leg, "LOI buffer")
-      col <- c(col, "blue")
-      lty <- c(lty, 1)
-      pch <- c(pch, NA)
-      lwd <- c(lwd, 1)
+
+
+
+      graphics::legend(x = "topright", inset = c(-0.7, 0), xpd = TRUE,
+                       legend = leg,
+                       col = col,
+                       lty = lty,
+                       pch = pch,
+                       lwd = lwd,
+                       cex = 0.8)
+
+    }
+
+    if(reset_setting)
+      on.exit(graphics::par(opar))
+
+
+
+
+
+  }else{
+
+    #Init map
+    leaflet_map <- leaflet::leaflet(options = leaflet::leafletOptions(worldCopyJump = F,
+                                                                      minZoom = 2,
+                                                                      maxZoom = 12),
+                                    width = 650,
+                                    height = 700) %>%
+      leaflet::addProviderTiles(leaflet::providers$Esri.NatGeoWorldMap, group = "Satellite",
+                                options = leaflet::providerTileOptions(errorTileUrl = "Tile not found")) %>%
+      leaflet::fitBounds(lng1 = as.numeric(ext$xmin), lng2 = as.numeric(ext$xmax),
+                         lat1 = as.numeric(ext$ymin), lat2 = as.numeric(ext$ymax))
+
+    #Plotting loi
+    if(loi)
+      leaflet_map <- leaflet::addPolylines(leaflet_map,
+                                           data = sts@spatial.loi.buffer,
+                                           fillColor = "transparent",
+                                           label = "Buffer limit")
+
+    if(loi & as.character(sf::st_geometry_type(sts@spatial.loi)) == "POINT")
+      leaflet_map <- leaflet::addCircleMarkers(leaflet_map,
+                                               data = sts@spatial.loi,
+                                               fillColor = "transparent",
+                                               label = "LOI")
+
+
+    #Plotting track(s) and labels
+    for(st in sts.aux){
+
+      data <- st@obs.all
+      data$type <- unlist(lapply(data$msw,getType))
+
+      lbs <- paste0(st@name," (",row.names(data),")\n",data$iso.time)
+
+      #Plot track
+      leaflet_map <- leaflet::addPolylines(leaflet_map,
+                                           data = data,
+                                           lng = ~lon,
+                                           lat = ~lat,
+                                           color = "black",
+                                           weight = 2)
+
+      leaflet_map <- leaflet::addMarkers(leaflet_map,
+                                         data = data,
+                                         lng = ~lon,
+                                         lat = ~lat,
+                                         icon = ~Categories[type],
+                                         label = lbs)
     }
 
 
+    #Adding legends
+    leaflet_map <- leaflet::addLegend(leaflet_map,
+                                      "topright",
+                                      colors = c("#00CCFF", "#00CCCC", "#FFFFB2", "#FECC5C",
+                                                          "#FD8D3C", "#F03B20", "#BD0026"),
 
-    graphics::legend(x = "topright", inset = c(-0.7, 0), xpd = TRUE,
-                     legend = leg,
-                     col = col,
-                     lty = lty,
-                     pch = pch,
-                     lwd = lwd,
-                     cex = 0.8)
+
+                                      labels = c("Tropical Depression (< 18 m/s)",
+                                                 "Tropical Storm (18-32 m/s)",
+                                                 "Category 1 (33-42 m/s)",
+                                                 "Category 2 (43-49 m/s)",
+                                                 "Category 3 (50-58 m/s)",
+                                                 "Category 4 (58-70 m/s)",
+                                                 "Category 5 (>= 70 m/s)"),
+
+                                      title = "Saffir Simpson Hurricane Scale",
+                                      opacity = 1)
+
+    leaflet_map
 
   }
-
-  if(reset_setting)
-    on.exit(graphics::par(opar))
 
 }
