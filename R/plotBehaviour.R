@@ -14,8 +14,9 @@
 #' @param by numeric
 #' @param pos numeric
 #' @param color_palette character vector
+#' @param mode character
 #' @return NULL
-checkInputsPb <- function(sts, raster_product, xlim, ylim, labels, by, pos, color_palette){
+checkInputsPb <- function(sts, raster_product, xlim, ylim, labels, by, pos, color_palette, mode){
 
   #Checking sts input
   stopifnot("no data to plot" = !missing(sts))
@@ -57,6 +58,11 @@ checkInputsPb <- function(sts, raster_product, xlim, ylim, labels, by, pos, colo
   if(!is.null(color_palette))
     stopifnot("color_palette must be character" = identical(class(color_palette),"character"))
 
+  #Checking mode input
+  stopifnot("mode must be character" = identical(class(mode), "character"))
+  stopifnot("mode must length 1" = length(mode) == 1)
+  stopifnot("Invalid mode" = mode %in% c("Classic", "Interactive"))
+
 }
 
 
@@ -94,6 +100,7 @@ checkInputsPb <- function(sts, raster_product, xlim, ylim, labels, by, pos, colo
 #'@param pos numeric. Must be between 1 and 4. Correspond to the position of
 #'  labels according to the observation: 1 (up), 2 (left), 3 (down), 4 (right).
 #'  Default value is set to 3. Ignored if labels == FALSE
+#' @param mode character
 #'
 #'@returns NULL
 #'
@@ -117,10 +124,11 @@ plotBehaviour <- function(sts,
                           ylim = NULL,
                           labels = FALSE,
                           by = 8,
-                          pos = 3){
+                          pos = 3,
+                          mode = "Classic"){
 
 
-  checkInputsPb(sts, raster_product, xlim, ylim, labels, by, pos, color_palette)
+  checkInputsPb(sts, raster_product, xlim, ylim, labels, by, pos, color_palette, mode)
 
   name <- strsplit(names(raster_product), split = "_", fixed = TRUE)[[1]][1]
   product <- strsplit(names(raster_product), split = "_", fixed = TRUE)[[1]][2]
@@ -147,13 +155,8 @@ plotBehaviour <- function(sts,
     ymax <- ylim[2]
   }
 
-  #Handling gap with legend
-  size.map = ymax - ymin
-  y.leg = ymin - size.map * 0.09
 
-  #Plotting track
-  plotStorms(sts = sts, names = name, xlim = c(xmin, xmax), ylim = c(ymin, ymax),
-             reset_setting = FALSE)
+
 
   #Adding raster_product on map
   if(product == "MSW"){
@@ -161,6 +164,8 @@ plotBehaviour <- function(sts,
     col <- mswSSHSPalette
     range <- c(17, 80)
     leg <- expression(paste("MSW (m.s" ^ "-1",")"))
+    if(mode == "Interactive")
+      leg <- paste("MSW (m/s)")
 
   }else if(product == "PDI"){
 
@@ -179,6 +184,8 @@ plotBehaviour <- function(sts,
     col <- mswSSHSPalette
     range <- c(17, 80)
     leg <- expression(paste("radial wind speed (m.s" ^ "-1",")"))
+    if(mode == "Interactive")
+      leg <- paste("radial wind speed (m/s)")
 
   }else if(product == "WindDirection"){
 
@@ -191,62 +198,117 @@ plotBehaviour <- function(sts,
   if(!is.null(color_palette))
     col <- color_palette
 
-  #Adding title
-  graphics::title(leg)
 
-  plot(raster_product,
-       col = col,
-       xlim = c(xmin, xmax),
-       ylim = c(ymin, ymax),
-       alpha = 0.7,
-       axes = FALSE,
-       range = range,
-       legend = TRUE,
-       plg = list(loc = "bottom",
-                  ext = c(xmin, xmax, y.leg, y.leg - size.map* 0.05),
-                  cex = 0.7,
-                  shrink = 0),
-       add = T)
+  if(mode == "Classic"){
+
+    #Plotting track
+    plotStorms(sts = sts, names = name, xlim = c(xmin, xmax), ylim = c(ymin, ymax),
+               reset_setting = FALSE)
+
+    #Adding title
+    graphics::title(leg)
+
+    plot(raster_product,
+         col = col,
+         xlim = c(xmin, xmax),
+         ylim = c(ymin, ymax),
+         alpha = 0.7,
+         axes = FALSE,
+         range = range,
+         legend = TRUE,
+         plg = list(loc = "bottom",
+                    ext = c(xmin, xmax, y.leg, y.leg - size.map* 0.05),
+                    cex = 0.7,
+                    shrink = 0),
+         add = T)
 
 
-  #Adding track again (to emphazise)
-  plotTrack(sts@data[[name]])
+    #Handling gap with legend
+    size.map = ymax - ymin
+    y.leg = ymin - size.map * 0.09
 
-  #Adding labels
-  if(labels & product != "Profiles" & product != "WindDirection")
-    plotLabels(sts@data[[name]],by,pos)
+    #Adding track again (to emphazise)
+    plotTrack(sts@data[[name]])
 
-  if(labels & (product == "Profiles" | product == "WindDirection")){
+    #Adding labels
+    if(labels & product != "Profiles" & product != "WindDirection")
+      plotLabels(sts@data[[name]],by,pos)
 
-    ind <- as.numeric(strsplit(names(raster_product), split = "_", fixed = TRUE)[[1]][3])
+    if(labels & (product == "Profiles" | product == "WindDirection")){
 
-    if(round(ind) == ind){
-      #It is a real observation
-      graphics::text(sts@data[[name]]@obs.all$lon[ind],
-                     sts@data[[name]]@obs.all$lat[ind],
-                     labels = paste0(name,"\n", sts@data[[name]]@obs.all$iso.time[ind],
-                                     "\n(",ind,")"),
-                     pos = pos,
-                     cex = 0.6)
-    }else{
-      #It is an interpolated observation
-      indf <- floor(ind)
-      indc <- ceiling(ind)
-      pos2 <- switch(pos, "1" = 3, "2" = 4, "3" = 1, "4" = 2)
-      graphics::text(sts@data[[name]]@obs.all$lon[indf],
-                     sts@data[[name]]@obs.all$lat[indf],
-                     labels = paste0(name,"\n", sts@data[[name]]@obs.all$iso.time[indf],
-                                    "\n(",indf,")"),
-                     pos = pos,
-                     cex = 0.6)
+      ind <- as.numeric(strsplit(names(raster_product), split = "_", fixed = TRUE)[[1]][3])
 
-      graphics::text(sts@data[[name]]@obs.all$lon[indc],
-                     sts@data[[name]]@obs.all$lat[indc],
-                     labels = paste0(name,"\n", sts@data[[name]]@obs.all$iso.time[indc],
-                                     "\n(",indc,")"),
-                     pos = pos2,
-                     cex = 0.6)
+      if(round(ind) == ind){
+        #It is a real observation
+        graphics::text(sts@data[[name]]@obs.all$lon[ind],
+                       sts@data[[name]]@obs.all$lat[ind],
+                       labels = paste0(name,"\n", sts@data[[name]]@obs.all$iso.time[ind],
+                                       "\n(",ind,")"),
+                       pos = pos,
+                       cex = 0.6)
+      }else{
+        #It is an interpolated observation
+        indf <- floor(ind)
+        indc <- ceiling(ind)
+        pos2 <- switch(pos, "1" = 3, "2" = 4, "3" = 1, "4" = 2)
+        graphics::text(sts@data[[name]]@obs.all$lon[indf],
+                       sts@data[[name]]@obs.all$lat[indf],
+                       labels = paste0(name,"\n", sts@data[[name]]@obs.all$iso.time[indf],
+                                       "\n(",indf,")"),
+                       pos = pos,
+                       cex = 0.6)
+
+        graphics::text(sts@data[[name]]@obs.all$lon[indc],
+                       sts@data[[name]]@obs.all$lat[indc],
+                       labels = paste0(name,"\n", sts@data[[name]]@obs.all$iso.time[indc],
+                                       "\n(",indc,")"),
+                       pos = pos2,
+                       cex = 0.6)
+      }
     }
+
+
+  }else{
+
+    map <- plotStorms(sts = sts, names = name,
+                              xlim = c(xmin, xmax),
+                              ylim = c(ymin, ymax),
+                              reset_setting = FALSE,
+                              mode = "Interactive")
+
+
+
+    #terra::plet(x = raster_product, map = map)
+
+
+
+    # if (inherits(raster_product, "SpatRaster"))
+    #   raster_product <- raster::raster(raster_product)
+    #
+    #
+    #
+    # map <- leaflet::addRasterImage(map,
+    #                                        raster_product,
+    #                                        colors = col,
+    #                                        opacity = 0.8)
+
+    # l <- rep(NA,length(col))
+    # l[1] <- range[1]
+    # l[length(l)] <- range[2]
+    # #Adding legends
+    # map <- leaflet::addLegend(map,
+    #                                   "bottomright",
+    #                                   colors = col,
+    #                                   labels = l,
+    #
+    #                                   title = leg,
+    #                                   opacity = 0.8)
+
+    map
+
+
+
   }
+
 
 }

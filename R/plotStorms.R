@@ -428,18 +428,16 @@ plotStorms <- function(sts, names = NULL, category = NULL, labels = FALSE,
     if(reset_setting)
       on.exit(graphics::par(opar))
 
-
-
-
+    return(NULL)
 
   }else{
 
     #Init map
-    leaflet_map <- leaflet::leaflet(options = leaflet::leafletOptions(worldCopyJump = F,
-                                                                      minZoom = 2,
-                                                                      maxZoom = 12),
-                                    width = 650,
-                                    height = 700) %>%
+    map <- leaflet::leaflet(options = leaflet::leafletOptions(worldCopyJump = F,
+                                                              minZoom = 2,
+                                                              maxZoom = 12),
+                            width = 650,
+                            height = 700) %>%
       leaflet::addProviderTiles(leaflet::providers$Esri.NatGeoWorldMap, group = "Satellite",
                                 options = leaflet::providerTileOptions(errorTileUrl = "Tile not found")) %>%
       leaflet::fitBounds(lng1 = as.numeric(ext$xmin), lng2 = as.numeric(ext$xmax),
@@ -447,16 +445,16 @@ plotStorms <- function(sts, names = NULL, category = NULL, labels = FALSE,
 
     #Plotting loi
     if(loi)
-      leaflet_map <- leaflet::addPolylines(leaflet_map,
-                                           data = sts@spatial.loi.buffer,
-                                           fillColor = "transparent",
-                                           label = "Buffer limit")
+      map <- leaflet::addPolylines(map,
+                                   data = sts@spatial.loi.buffer,
+                                   fillColor = "transparent",
+                                   label = "Buffer limit")
 
     if(loi & as.character(sf::st_geometry_type(sts@spatial.loi)) == "POINT")
-      leaflet_map <- leaflet::addCircleMarkers(leaflet_map,
-                                               data = sts@spatial.loi,
-                                               fillColor = "transparent",
-                                               label = "LOI")
+      map <- leaflet::addCircleMarkers(map,
+                                       data = sts@spatial.loi,
+                                       fillColor = "transparent",
+                                       label = "LOI")
 
 
     #Plotting track(s) and labels
@@ -468,41 +466,43 @@ plotStorms <- function(sts, names = NULL, category = NULL, labels = FALSE,
       lbs <- paste0(st@name," (",row.names(data),")\n",data$iso.time)
 
       #Plot track
-      leaflet_map <- leaflet::addPolylines(leaflet_map,
-                                           data = data,
-                                           lng = ~lon,
-                                           lat = ~lat,
-                                           color = "black",
-                                           weight = 2)
+      map <- leaflet::addPolylines(map,
+                                   data = data,
+                                   lng = ~lon,
+                                   lat = ~lat,
+                                   color = "black",
+                                   weight = 2)
 
-      leaflet_map <- leaflet::addMarkers(leaflet_map,
-                                         data = data,
-                                         lng = ~lon,
-                                         lat = ~lat,
-                                         icon = ~Categories[type],
-                                         label = lbs)
+      map <- leaflet::addMarkers(map,
+                                 data = data,
+                                 lng = ~lon,
+                                 lat = ~lat,
+                                 icon = ~Categories[type],
+                                 label = lbs)
     }
 
 
     #Adding legends
-    leaflet_map <- leaflet::addLegend(leaflet_map,
-                                      "topright",
-                                      colors = c("#00CCFF", "#00CCCC", "#FFFFB2", "#FECC5C",
-                                                          "#FD8D3C", "#F03B20", "#BD0026"),
+    map <- leaflet::addLegend(map,
+                              "topright",
+                              colors = c("#00CCFF", "#00CCCC", "#FFFFB2", "#FECC5C",
+                                                  "#FD8D3C", "#F03B20", "#BD0026"),
 
 
-                                      labels = c("Tropical Depression (< 18 m/s)",
-                                                 "Tropical Storm (18-32 m/s)",
-                                                 "Category 1 (33-42 m/s)",
-                                                 "Category 2 (43-49 m/s)",
-                                                 "Category 3 (50-58 m/s)",
-                                                 "Category 4 (58-70 m/s)",
-                                                 "Category 5 (>= 70 m/s)"),
+                              labels = c("Tropical Depression (< 18 m/s)",
+                                         "Tropical Storm (18-32 m/s)",
+                                         "Category 1 (33-42 m/s)",
+                                         "Category 2 (43-49 m/s)",
+                                         "Category 3 (50-58 m/s)",
+                                         "Category 4 (58-70 m/s)",
+                                         "Category 5 (>= 70 m/s)"),
 
-                                      title = "Saffir Simpson Hurricane Scale",
-                                      opacity = 1)
+                              title = "Saffir Simpson Hurricane Scale",
+                              opacity = 1)
 
-    leaflet_map
+    map
+
+    return(map)
 
   }
 
